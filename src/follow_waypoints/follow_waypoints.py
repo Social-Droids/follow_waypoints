@@ -13,13 +13,10 @@ import math
 import rospkg
 import csv
 import time
+import os
+import yaml
 from geometry_msgs.msg import PoseStamped
 import dynamic_reconfigure.client
-
-import yaml 
-import numpy as np
-import os
-import csv
 
 # change Pose to the correct frame 
 def changePose(waypoint,target_frame):
@@ -77,15 +74,13 @@ class FollowPath(State):
 
         self.clientDR = dynamic_reconfigure.client.Client("move_base/TebLocalPlannerROS", timeout=30, config_callback=self.callbackDR)
 
-        ########################## SAVE WAYPOINTS ############################
-
-
-        folder_waypoints = '/ws_socialdroids/src/socialdroids/robot_data/data'
+        # === Read the waypoints from the file === #
+        foldes_waypoints = '/ws_socialdroids/src/socialdroids/robot_data/data'
         way_files = []
         pose_files = []
 
         # Read the waypoints from the folder
-        for root, dirs, files in os.walk(folder_waypoints):
+        for root, dirs, files in os.walk(foldes_waypoints):
             for file in files:
                 path = os.path.join(root, file)
                 name, ext = os.path.splitext(file)   
@@ -116,19 +111,8 @@ class FollowPath(State):
                 for i in ways:
                     roll_str = str(i[0]).strip('[]')
                     pitch_str = str(i[1]).strip('[]')
-                    yaw_str = str(i[2]).strip('[]')
 
-                    roll, pitch, yaw = float(roll_str), float(pitch_str), float(yaw_str)
-
-                    # calculate the coordinates
-                    qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
-                    qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
-                    qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
-                    qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
-
-                    csv_writer.writerow([roll_str, pitch_str, 0.0, 0.0, 0.0, qz, qw])
-
-        ######################################################################
+                    csv_writer.writerow([roll_str, pitch_str, 0.0, 0.0, 0.0, 0.0, 1.0])
 
     def callbackDR(self, config):
         rospy.loginfo("Navigation tolerance set to [xy_goal:{xy_goal_tolerance}, yaw_goal:{yaw_goal_tolerance}]".format(**config))
