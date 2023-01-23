@@ -67,10 +67,13 @@ class FollowPath(State):
         self.actual_xy_goal_tolerance = rospy.get_param("~xy_goal_tolerance", 0.3)
         self.actual_yaw_goal_tolerance = rospy.get_param("~yaw_goal_tolerance", 3.14)
 
-        self.last_xy_goal_tolerance = rospy.get_param('/move_base/TebLocalPlannerROS/xy_goal_tolerance')
-        self.last_yaw_goal_tolerance = rospy.get_param('/move_base/TebLocalPlannerROS/yaw_goal_tolerance')
+        # self.last_xy_goal_tolerance = rospy.get_param('/move_base/TebLocalPlannerROS/xy_goal_tolerance')
+        # self.last_yaw_goal_tolerance = rospy.get_param('/move_base/TebLocalPlannerROS/yaw_goal_tolerance')
+        # self.clientDR = dynamic_reconfigure.client.Client("move_base/TebLocalPlannerROS", timeout=30, config_callback=self.callbackDR)
 
-        self.clientDR = dynamic_reconfigure.client.Client("move_base/TebLocalPlannerROS", timeout=30, config_callback=self.callbackDR)
+        self.last_xy_goal_tolerance = rospy.get_param('/move_base/DWAPlannerROS/xy_goal_tolerance')
+        self.last_yaw_goal_tolerance = rospy.get_param('/move_base/DWAPlannerROS/yaw_goal_tolerance')
+        self.clientDR = dynamic_reconfigure.client.Client("move_base/DWAPlannerROS", timeout=30, config_callback=self.callbackDR)
 
     def callbackDR(self, config):
         rospy.loginfo("Navigation tolerance set to [xy_goal:{xy_goal_tolerance}, yaw_goal:{yaw_goal_tolerance}]".format(**config))
