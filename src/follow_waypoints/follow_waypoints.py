@@ -81,13 +81,13 @@ class FollowPath(State):
     def execute(self, userdata):
 
         self.clientDR.update_configuration({
-            "xy_goal_tolerance":self.actual_xy_goal_tolerance, 
-            "yaw_goal_tolerance":self.actual_yaw_goal_tolerance
-            })
+        "xy_goal_tolerance":self.actual_xy_goal_tolerance,
+        "yaw_goal_tolerance":self.actual_yaw_goal_tolerance
+        })
 
         global waypoints
-        # Execute waypoints each in sequence
-        for waypoint in waypoints:
+        # Run waypoints each in sequence
+        for i, waypoint in enumerate(waypoints):
             # Break if preempted
             if waypoints == []:
                 rospy.loginfo('The waypoint queue has been reset.')
@@ -106,10 +106,24 @@ class FollowPath(State):
             rospy.loginfo("Waiting for %f sec..." % self.duration)
             time.sleep(self.duration)
 
+            # Remove the reached waypoint from the CSV file
+            with open(journey_file_path, 'r') as csvfile:
+                reader = csv.reader(csvfile)
+                waypoints_list = list(reader)
+            new_waypoints_list = []
+            for wp in waypoints_list:
+                rospy.loginfo(str(waypoint.pose.pose.position.x) + ', ' + str(waypoint.pose.pose.position.y))
+                if (float(wp[0]) != waypoint.pose.pose.position.x) or (float(wp[1]) != waypoint.pose.pose.position.y):
+                    new_waypoints_list.append(wp)
+            with open(journey_file_path, 'w') as csvfile:
+                writer = csv.writer(csvfile)
+                for wp in new_waypoints_list:
+                    writer.writerow(wp)
+
         self.clientDR.update_configuration({
-            "xy_goal_tolerance":self.last_xy_goal_tolerance, 
+            "xy_goal_tolerance":self.last_xy_goal_tolerance,
             "yaw_goal_tolerance":self.last_yaw_goal_tolerance
-            })
+        })
 
         return 'success'
 
@@ -161,67 +175,22 @@ class GetPath(State):
         rospy.loginfo('poses written to '+ output_file_path)	
 
     def wait_for_start_journey(self):
-            """
-            Wait for a message on the /start_journey topic to signal that the robot should begin following the saved path.
-            """
-            global waypoints
-
-            rospy.loginfo("Waiting for /start_journey message to follow saved path")
-
-            start_journey = rospy.Subscriber('/start_journey', Empty, self.start_journey_callback)
-
-            # Wait until start_journey_callback() sets self.start_journey_bool to True
-            while not self.start_journey_bool:
-                if rospy.is_shutdown():
-                    start_journey.unregister()
-                    return
-                rospy.sleep(0.1)
-
-            # Read saved poses from follow_waypoints/saved_path/poses.csv and follow them
-            poses_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'saved_path', 'poses.csv')
-            poses_file = open(poses_file_path, 'r')
-
-            with poses_file:
-                poses_reader = csv.reader(poses_file)
-                next(poses_reader)  # skip header row
-
-                for row in poses_reader:
-                    if rospy.is_shutdown():
-                        start_journey.unregister()
-                        return
-
-                    pose_stamped = PoseStamped()
-                    pose_stamped.pose.position.x = float(row[0])
-                    pose_stamped.pose.position.y = float(row[1])
-                    pose_stamped.pose.position.z = float(row[2])
-                    pose_stamped.pose.orientation.x = float(row[3])
-                    pose_stamped.pose.orientation.y = float(row[4])
-                    pose_stamped.pose.orientation.z = float(row[5])
-                    pose_stamped.pose.orientation.w = float(row[6])
-
-                    # check if the robot has reached the waypoint
-                    while not self.is_goal_reached(pose_stamped):
-                        if rospy.is_shutdown():
-                            start_journey.unregister()
-                            return
-                        rospy.sleep(0.1)
-
-                    # remove the reached waypoint from the CSV file
-                    with open(poses_file_path, 'r') as input_file, open(poses_file_path + '.tmp', 'w') as output_file:
-                        reader = csv.reader(input_file)
-                        writer = csv.writer(output_file)
-
-                        header_row = next(reader)
-                        writer.writerow(header_row)
-
-                        for r in reader:
-                            if r != row:
-                                writer.writerow(r)
-
-                    os.rename(poses_file_path + '.tmp', poses_file_path)
-
-                    rospy.loginfo("Reached waypoint: x=%f, y=%f, z=%f" % (pose_stamped.pose.position.x, pose_stamped.pose.position.y, pose_stamped.pose.position.z))
-
+        data_from_start_journey = rospy.wait_for_message('start_journey', Empty)
+        rospy.loginfo('Received start_journey message')
+        with open(journey_file_path, 'r') as file:
+            reader = csv.reader(file, delimiter=',')
+            for i, row in enumerate(reader):
+                current_pose = PoseWithCovarianceStamped()
+                current_pose.pose.pose.position.x = float(row[0])
+                current_pose.pose.pose.position.y = float(row[1])
+                current_pose.pose.pose.position.z = float(row[2])
+                current_pose.pose.pose.orientation.x = float(row[3])
+                current_pose.pose.pose.orientation.y = float(row[4])
+                current_pose.pose.pose.orientation.z = float(row[5])
+                current_pose.pose.pose.orientation.w = float(row[6])
+                waypoints.append(current_pose)
+                self.poseArray_publisher.publish(convert_PoseWithCovArray_to_PoseArray(waypoints))
+            self.start_journey_bool = True
 
     def execute(self, userdata):
         global waypoints
