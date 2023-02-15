@@ -12,6 +12,7 @@ import tf
 import math
 import rospkg
 import csv
+import os
 import time
 from geometry_msgs.msg import PoseStamped
 import dynamic_reconfigure.client
@@ -71,6 +72,9 @@ class FollowPath(State):
         # self.last_yaw_goal_tolerance = rospy.get_param('/move_base/TebLocalPlannerROS/yaw_goal_tolerance')
         # self.clientDR = dynamic_reconfigure.client.Client("move_base/TebLocalPlannerROS", timeout=30, config_callback=self.callbackDR)
 
+        self.pose_file_path = rospkg.RosPack().get_path('follow_waypoints')+"/saved_path/pose.csv"
+
+
         self.last_xy_goal_tolerance = rospy.get_param('/move_base/DWAPlannerROS/xy_goal_tolerance')
         self.last_yaw_goal_tolerance = rospy.get_param('/move_base/DWAPlannerROS/yaw_goal_tolerance')
         self.clientDR = dynamic_reconfigure.client.Client("move_base/DWAPlannerROS", timeout=30, config_callback=self.callbackDR)
@@ -106,19 +110,18 @@ class FollowPath(State):
             rospy.loginfo("Waiting for %f sec..." % self.duration)
             time.sleep(self.duration)
 
-            # Remove the reached waypoint from the CSV file
-            with open(journey_file_path, 'r') as csvfile:
-                reader = csv.reader(csvfile)
-                waypoints_list = list(reader)
-            new_waypoints_list = []
-            for wp in waypoints_list:
-                rospy.loginfo(str(waypoint.pose.pose.position.x) + ', ' + str(waypoint.pose.pose.position.y))
-                if (float(wp[0]) != waypoint.pose.pose.position.x) or (float(wp[1]) != waypoint.pose.pose.position.y):
-                    new_waypoints_list.append(wp)
-            with open(journey_file_path, 'w') as csvfile:
-                writer = csv.writer(csvfile)
-                for wp in new_waypoints_list:
-                    writer.writerow(wp)
+            # Delete the first line of the CSV file
+            if os.path.exists(self.pose_file_path):
+                with open(self.pose_file_path, 'r') as csv_file:
+                    reader = csv.reader(csv_file)
+                    lines = list(reader)
+                    if len(lines) > 1:
+                        with open(self.pose_file_path, 'w') as csv_file:
+                            writer = csv.writer(csv_file)
+                            writer.writerows(lines[1:])
+
+            # Remove the reached waypoint from the queue
+            waypoints.pop(0)
 
         self.clientDR.update_configuration({
             "xy_goal_tolerance":self.last_xy_goal_tolerance,
