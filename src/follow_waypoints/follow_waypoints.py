@@ -244,7 +244,7 @@ def main():
                            transitions={'success':'FOLLOW_PATH'},
                            remapping={'waypoints':'waypoints'})
         StateMachine.add('FOLLOW_PATH', FollowPath(),
-                           transitions={'success':'PATH_COMPLETE'},
+                           transitions={'success':'FOLLOW_PATH'},
                            remapping={'waypoints':'waypoints'})
         StateMachine.add('PATH_COMPLETE', PathComplete(),
                            transitions={'success':'GET_PATH'})
